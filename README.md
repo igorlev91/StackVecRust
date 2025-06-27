@@ -53,15 +53,17 @@ stackvec = { git = "https://github.com/igorlev91/StackVecRust" }
 You can also commit to a specific tag by supplying it:
 ```toml
 [dependencies]
-stackvec = { git = "https://github.com/igorlev91/stackvec-rs", tag = "v0.1.0" }
+stackvec = { git = "https://github.com/igorlev91/StackVecRust", tag = "v0.2.0" }
 ```
 
 
 ## Usage
 To inspect the code documentation, either use [`rust-analyzer`] to integrate the crate's documents into your IDE, or generate a standalone HTML:
-```toml
+```bash
 cargo doc --no-deps --open
 ```
+
+
 
 ## License
 This project is licensed under GPLv3. See [LICENSE](./LICENSE) for more information.

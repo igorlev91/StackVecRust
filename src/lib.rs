@@ -750,3 +750,15 @@ impl<const LEN: usize, T> From<Vec<T>> for StackVec<LEN, T> {
     #[inline]
     fn from(value: Vec<T>) -> Self { Self::from_iter(value) }
 }
+
+// Into
+impl<const LEN: usize, T> From<StackVec<LEN, T>> for Vec<T> {
+    #[inline]
+    fn from(value: StackVec<LEN, T>) -> Self {
+        let mut res: Vec<T> = Vec::with_capacity(LEN);
+        for val in value {
+            res.push(val)
+        }
+        res
+    }
+}
