@@ -6,7 +6,7 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter, Result as FResult};
 use std::iter::FusedIterator;
-use std::mem::MaybeUninit;
+use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ops::{Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
 
@@ -754,11 +754,21 @@ impl<const LEN: usize, T> From<Vec<T>> for StackVec<LEN, T> {
 // Into
 impl<const LEN: usize, T> From<StackVec<LEN, T>> for Vec<T> {
     #[inline]
-    fn from(value: StackVec<LEN, T>) -> Self {
-        let mut res: Vec<T> = Vec::with_capacity(LEN);
-        for val in value {
-            res.push(val)
+    fn from(mut value: StackVec<LEN, T>) -> Self {
+        // Move the values that we haven't moved before
+        let mut res: Vec<T> = Vec::with_capacity(value.len);
+        for i in 0..value.len {
+            // Get the value out
+            let mut elem: MaybeUninit<T> = MaybeUninit::uninit();
+            std::mem::swap(&mut elem, &mut value.data[i]);
+
+            // Push it to the list
+            // SAFETY: This is OK because we know that all first `value.len` elements are initialized, as per our upheld guarantee.
+            res.push(unsafe { elem.assume_init() })
         }
+
+        // Don't forget to forget `value`, lest it will drop uninitialized values!
+        std::mem::forget(value);
         res
     }
 }
