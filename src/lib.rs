@@ -10,6 +10,58 @@ use std::mem::MaybeUninit;
 use std::ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
 
+/***** TESTS *****/
+#[cfg(test)]
+pub mod tests {
+    use super::StackVec;
+
+    #[test]
+    fn extend() {
+        // Build a vec
+        let vec: StackVec<3, String> = StackVec::from(["D".into(), "E".into(), "F".into()]);
+        // Build another vec that extends
+        let mut vec2: StackVec<6, String> = StackVec::from(["A".into(), "B".into(), "C".into()]);
+        vec2.extend(vec);
+        assert_eq!(vec2, ["A".into(), "B".into(), "C".into(), "D".into(), "E".into(), "F".into()]);
+    }
+
+    #[test]
+    fn extend_empty() {
+        // Extend an empty vec
+        let mut vec3: StackVec<3, String> = StackVec::from(["A".into(), "B".into(), "C".into()]);
+        vec3.extend(StackVec::<3, String>::new());
+        assert_eq!(vec3, ["A".into(), "B".into(), "C".into()]);
+    }
+
+    #[test]
+    fn extend_vec() {
+        // Extend a vec of 1 into a vector
+        let mut vec4: Vec<String> = Vec::with_capacity(5);
+        vec4.extend(StackVec::<5, String>::from(["Hello there!".into(), "General Kenobi!".into()]));
+        assert_eq!(vec4, vec!["Hello there!".to_string(), "General Kenobi!".to_string()]);
+    }
+
+    #[test]
+    fn extend_vec_empty() {
+        // Extend an empty vec into a vector
+        let mut vec4: Vec<String> = Vec::with_capacity(5);
+        vec4.extend(StackVec::<5, String>::new());
+        assert_eq!(vec4, Vec::<String>::new());
+    }
+
+    #[test]
+    fn sort() {
+        // Do one with a from
+        let mut vec: StackVec<5, &'static str> = StackVec::from(["Dan", "Amy", "Cho", "Eve", "Bob"]);
+        vec.sort();
+        assert_eq!(vec, ["Amy", "Bob", "Cho", "Dan", "Eve"]);
+    }
+}
+
+
+
+
+
 /***** HELPER MACROS *****/
 /// Implements [`Index`] and [`IndexMut`] for a particular range.
 macro_rules! index_range_impl {
@@ -77,6 +129,9 @@ impl<const LEN: usize, T> Drop for IntoIter<LEN, T> {
             unsafe { self.vec.data[self.i].assume_init_drop() };
             self.i += 1;
         }
+
+        // Now manually edit the length of the stackvec to prevent it dropping anything
+        self.vec.len = 0;
     }
 }
 
@@ -169,91 +224,6 @@ impl<const LEN: usize, T> StackVec<LEN, T> {
             len:  0,
         }
     }
-
-    // /// Gets an element from the StackVec by index.
-    // ///
-    // /// This is a "safe" version of reading an element in the StackVec. If you want a less forgiving check, see [`Self::index()`](StackVec::index()); or, if you are particularly brave, see [`Self::get_unchecked()`](StackVec::get_unchecked()).
-    // ///
-    // /// # Arguments
-    // /// - `idx`: The index of the element to return.
-    // ///
-    // /// # Returns
-    // /// A reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
-    // #[inline]
-    // pub const fn get(&self, idx: usize) -> Option<&T> {
-    //     if idx < self.len {
-    //         // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and that `idx` is surely within range of `self.len`.
-    //         Some(unsafe { self.data[idx].assume_init_ref() })
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    // /// Gets an element from the StackVec by index with no handholding.
-    // ///
-    // /// This is the fastest version of reading an element in the StackVec, but you have to manually ensure that **your `idx` is within range of this StackVec**. Essentially, only do this if
-    // /// ```ignore
-    // /// idx < stack_vec.len()
-    // /// ```
-    // /// returns true (see [Self::len()](StackVec::len())).
-    // ///
-    // /// You can use [`Self::index()`](StackVec::index()) for a version that automatically performs this check. Alternatively, you can also use [`Self::get()`](StackVec::get()) if you want this check to be recoverable.
-    // ///
-    // /// # Arguments
-    // /// - `idx`: The index of the element to return.
-    // ///
-    // /// # Returns
-    // /// A reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
-    // #[inline]
-    // #[track_caller]
-    // pub const unsafe fn get_unchecked(&self, idx: usize) -> &T {
-    //     // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and rely on the user to ensure that `idx < self.len`.
-    //     self.data[idx].assume_init_ref()
-    // }
-
-    // /// Gets an element mutably from the StackVec by index.
-    // ///
-    // /// This is a "safe" version of reading/writing an element in the StackVec. If you want a less forgiving check, see [`Self::index_mut()`](StackVec::index_mut());
-    // /// or, if you are particularly brave, see [`Self::get_mut_unchecked()`](StackVec::get_mut_unchecked()).
-    // ///
-    // /// # Arguments
-    // /// - `idx`: The index of the element to return.
-    // ///
-    // /// # Returns
-    // /// A mutable reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
-    // #[inline]
-    // pub fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
-    //     if idx < self.len {
-    //         // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and that `idx` is surely within range of `self.len`.
-    //         Some(unsafe { self.data[idx].assume_init_mut() })
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    // /// Gets an element mutably from the StackVec by index with no handholding.
-    // ///
-    // /// This is the fastest version of reading/writing an element in the StackVec, but you have to manually ensure that **your `idx` is within range of this StackVec**.
-    // /// Essentially, only do this if
-    // /// ```ignore
-    // /// idx < stack_vec.len()
-    // /// ```
-    // /// returns true (see [Self::len()](StackVec::len())).
-    // ///
-    // /// You can use [`Self::index_mut()`](StackVec::index_mut()) for a version that automatically performs this check. Alternatively,
-    // /// you can also use [`Self::get_mut()`](StackVec::get_mut()) if you want this check to be recoverable.
-    // ///
-    // /// # Arguments
-    // /// - `idx`: The index of the element to return.
-    // ///
-    // /// # Returns
-    // /// A mutable reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
-    // #[inline]
-    // #[track_caller]
-    // pub unsafe fn get_mut_unchecked(&mut self, idx: usize) -> &mut T {
-    //     // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and rely on the user to ensure that `idx < self.len`.
-    //     self.data[idx].assume_init_mut()
-    // }
 
     /// Returns this StackVec as a slice of `T`s.
     ///
@@ -557,6 +527,123 @@ impl<const LEN: usize, T: PartialEq> PartialEq for StackVec<LEN, T> {
         true
     }
 }
+impl<const LEN: usize, const LEN2: usize, T: PartialEq> PartialEq<[T; LEN2]> for StackVec<LEN, T> {
+    #[inline]
+    fn eq(&self, other: &[T; LEN2]) -> bool {
+        if self.len != LEN2 {
+            return false;
+        }
+        for i in 0..self.len {
+            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized.
+            let lhs: &T = unsafe { self.data[i].assume_init_ref() };
+            // SAFETY: We already know that `other` has at least this much elements
+            let rhs: &T = unsafe { other.get_unchecked(i) };
+
+            // Now we can compare
+            if lhs != rhs {
+                return false;
+            }
+        }
+        true
+    }
+
+    #[inline]
+    fn ne(&self, other: &[T; LEN2]) -> bool {
+        if self.len != LEN2 {
+            return true;
+        }
+        for i in 0..self.len {
+            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized.
+            let lhs: &T = unsafe { self.data[i].assume_init_ref() };
+            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and the fact that we asserted `self.len == other.len` (so the property extends to the other vec too).
+            let rhs: &T = unsafe { other.get_unchecked(i) };
+
+            // Now we can compare
+            if lhs == rhs {
+                return false;
+            }
+        }
+        true
+    }
+}
+impl<'s, const LEN: usize, T: PartialEq> PartialEq<&'s [T]> for StackVec<LEN, T> {
+    #[inline]
+    fn eq(&self, other: &&'s [T]) -> bool {
+        if self.len != other.len() {
+            return false;
+        }
+        for i in 0..self.len {
+            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized.
+            let lhs: &T = unsafe { self.data[i].assume_init_ref() };
+            // SAFETY: We already know that `other` has at least this much elements
+            let rhs: &T = unsafe { other.get_unchecked(i) };
+
+            // Now we can compare
+            if lhs != rhs {
+                return false;
+            }
+        }
+        true
+    }
+
+    #[inline]
+    fn ne(&self, other: &&'s [T]) -> bool {
+        if self.len != other.len() {
+            return true;
+        }
+        for i in 0..self.len {
+            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized.
+            let lhs: &T = unsafe { self.data[i].assume_init_ref() };
+            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and the fact that we asserted `self.len == other.len` (so the property extends to the other vec too).
+            let rhs: &T = unsafe { other.get_unchecked(i) };
+
+            // Now we can compare
+            if lhs == rhs {
+                return false;
+            }
+        }
+        true
+    }
+}
+impl<const LEN: usize, T: PartialEq> PartialEq<Vec<T>> for StackVec<LEN, T> {
+    #[inline]
+    fn eq(&self, other: &Vec<T>) -> bool {
+        if self.len != other.len() {
+            return false;
+        }
+        for i in 0..self.len {
+            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized.
+            let lhs: &T = unsafe { self.data[i].assume_init_ref() };
+            // SAFETY: We already know that `other` has at least this much elements
+            let rhs: &T = unsafe { other.get_unchecked(i) };
+
+            // Now we can compare
+            if lhs != rhs {
+                return false;
+            }
+        }
+        true
+    }
+
+    #[inline]
+    fn ne(&self, other: &Vec<T>) -> bool {
+        if self.len != other.len() {
+            return true;
+        }
+        for i in 0..self.len {
+            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized.
+            let lhs: &T = unsafe { self.data[i].assume_init_ref() };
+            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and the fact that we asserted `self.len == other.len` (so the property extends to the other vec too).
+            let rhs: &T = unsafe { other.get_unchecked(i) };
+
+            // Now we can compare
+            if lhs == rhs {
+                return false;
+            }
+        }
+        true
+    }
+}
 impl<const LEN: usize, T: Ord> Ord for StackVec<LEN, T> {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
@@ -719,9 +806,9 @@ impl<const LEN: usize, T> FromIterator<T> for StackVec<LEN, T> {
         stack
     }
 }
-impl<const LEN: usize, T> From<[T; LEN]> for StackVec<LEN, T> {
+impl<const LEN: usize, const LEN2: usize, T> From<[T; LEN2]> for StackVec<LEN, T> {
     #[inline]
-    fn from(value: [T; LEN]) -> Self { Self::from_iter(value) }
+    fn from(value: [T; LEN2]) -> Self { Self::from_iter(value) }
 }
 impl<const LEN: usize, T: Clone> From<&[T]> for StackVec<LEN, T> {
     #[inline]
