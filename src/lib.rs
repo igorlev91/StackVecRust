@@ -352,6 +352,21 @@ impl<const LEN: usize, T> StackVec<LEN, T> {
         }
     }
 
+    /// Removes _all_ elements from the StackVec, starting afresh.
+    #[inline]
+    pub fn clear(&mut self) {
+        // Drop all elements in ourselves
+        for i in 0..self.len {
+            // SAFETY: OK because `i` is guaranteed to be below `self.len`, and we asserted the first `self.len` elements are ininitialized.
+            unsafe {
+                self.data[i].assume_init_drop();
+            }
+        }
+
+        // Reset the length to reset the elements
+        self.len = 0;
+    }
+
     /// Pushes a new element to the end of the StackVec.
     ///
     /// # Arguments
