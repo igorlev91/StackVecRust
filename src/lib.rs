@@ -6,8 +6,8 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter, Result as FResult};
 use std::iter::FusedIterator;
-use std::mem::{ManuallyDrop, MaybeUninit};
-use std::ops::{Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use std::mem::MaybeUninit;
+use std::ops::{Deref, DerefMut, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
 
 /***** HELPER MACROS *****/
@@ -170,90 +170,90 @@ impl<const LEN: usize, T> StackVec<LEN, T> {
         }
     }
 
-    /// Gets an element from the StackVec by index.
-    ///
-    /// This is a "safe" version of reading an element in the StackVec. If you want a less forgiving check, see [`Self::index()`](StackVec::index()); or, if you are particularly brave, see [`Self::get_unchecked()`](StackVec::get_unchecked()).
-    ///
-    /// # Arguments
-    /// - `idx`: The index of the element to return.
-    ///
-    /// # Returns
-    /// A reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
-    #[inline]
-    pub const fn get(&self, idx: usize) -> Option<&T> {
-        if idx < self.len {
-            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and that `idx` is surely within range of `self.len`.
-            Some(unsafe { self.data[idx].assume_init_ref() })
-        } else {
-            None
-        }
-    }
+    // /// Gets an element from the StackVec by index.
+    // ///
+    // /// This is a "safe" version of reading an element in the StackVec. If you want a less forgiving check, see [`Self::index()`](StackVec::index()); or, if you are particularly brave, see [`Self::get_unchecked()`](StackVec::get_unchecked()).
+    // ///
+    // /// # Arguments
+    // /// - `idx`: The index of the element to return.
+    // ///
+    // /// # Returns
+    // /// A reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
+    // #[inline]
+    // pub const fn get(&self, idx: usize) -> Option<&T> {
+    //     if idx < self.len {
+    //         // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and that `idx` is surely within range of `self.len`.
+    //         Some(unsafe { self.data[idx].assume_init_ref() })
+    //     } else {
+    //         None
+    //     }
+    // }
 
-    /// Gets an element from the StackVec by index with no handholding.
-    ///
-    /// This is the fastest version of reading an element in the StackVec, but you have to manually ensure that **your `idx` is within range of this StackVec**. Essentially, only do this if
-    /// ```ignore
-    /// idx < stack_vec.len()
-    /// ```
-    /// returns true (see [Self::len()](StackVec::len())).
-    ///
-    /// You can use [`Self::index()`](StackVec::index()) for a version that automatically performs this check. Alternatively, you can also use [`Self::get()`](StackVec::get()) if you want this check to be recoverable.
-    ///
-    /// # Arguments
-    /// - `idx`: The index of the element to return.
-    ///
-    /// # Returns
-    /// A reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
-    #[inline]
-    #[track_caller]
-    pub const unsafe fn get_unchecked(&self, idx: usize) -> &T {
-        // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and rely on the user to ensure that `idx < self.len`.
-        self.data[idx].assume_init_ref()
-    }
+    // /// Gets an element from the StackVec by index with no handholding.
+    // ///
+    // /// This is the fastest version of reading an element in the StackVec, but you have to manually ensure that **your `idx` is within range of this StackVec**. Essentially, only do this if
+    // /// ```ignore
+    // /// idx < stack_vec.len()
+    // /// ```
+    // /// returns true (see [Self::len()](StackVec::len())).
+    // ///
+    // /// You can use [`Self::index()`](StackVec::index()) for a version that automatically performs this check. Alternatively, you can also use [`Self::get()`](StackVec::get()) if you want this check to be recoverable.
+    // ///
+    // /// # Arguments
+    // /// - `idx`: The index of the element to return.
+    // ///
+    // /// # Returns
+    // /// A reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
+    // #[inline]
+    // #[track_caller]
+    // pub const unsafe fn get_unchecked(&self, idx: usize) -> &T {
+    //     // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and rely on the user to ensure that `idx < self.len`.
+    //     self.data[idx].assume_init_ref()
+    // }
 
-    /// Gets an element mutably from the StackVec by index.
-    ///
-    /// This is a "safe" version of reading/writing an element in the StackVec. If you want a less forgiving check, see [`Self::index_mut()`](StackVec::index_mut());
-    /// or, if you are particularly brave, see [`Self::get_mut_unchecked()`](StackVec::get_mut_unchecked()).
-    ///
-    /// # Arguments
-    /// - `idx`: The index of the element to return.
-    ///
-    /// # Returns
-    /// A mutable reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
-    #[inline]
-    pub fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
-        if idx < self.len {
-            // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and that `idx` is surely within range of `self.len`.
-            Some(unsafe { self.data[idx].assume_init_mut() })
-        } else {
-            None
-        }
-    }
+    // /// Gets an element mutably from the StackVec by index.
+    // ///
+    // /// This is a "safe" version of reading/writing an element in the StackVec. If you want a less forgiving check, see [`Self::index_mut()`](StackVec::index_mut());
+    // /// or, if you are particularly brave, see [`Self::get_mut_unchecked()`](StackVec::get_mut_unchecked()).
+    // ///
+    // /// # Arguments
+    // /// - `idx`: The index of the element to return.
+    // ///
+    // /// # Returns
+    // /// A mutable reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
+    // #[inline]
+    // pub fn get_mut(&mut self, idx: usize) -> Option<&mut T> {
+    //     if idx < self.len {
+    //         // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and that `idx` is surely within range of `self.len`.
+    //         Some(unsafe { self.data[idx].assume_init_mut() })
+    //     } else {
+    //         None
+    //     }
+    // }
 
-    /// Gets an element mutably from the StackVec by index with no handholding.
-    ///
-    /// This is the fastest version of reading/writing an element in the StackVec, but you have to manually ensure that **your `idx` is within range of this StackVec**.
-    /// Essentially, only do this if
-    /// ```ignore
-    /// idx < stack_vec.len()
-    /// ```
-    /// returns true (see [Self::len()](StackVec::len())).
-    ///
-    /// You can use [`Self::index_mut()`](StackVec::index_mut()) for a version that automatically performs this check. Alternatively,
-    /// you can also use [`Self::get_mut()`](StackVec::get_mut()) if you want this check to be recoverable.
-    ///
-    /// # Arguments
-    /// - `idx`: The index of the element to return.
-    ///
-    /// # Returns
-    /// A mutable reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
-    #[inline]
-    #[track_caller]
-    pub unsafe fn get_mut_unchecked(&mut self, idx: usize) -> &mut T {
-        // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and rely on the user to ensure that `idx < self.len`.
-        self.data[idx].assume_init_mut()
-    }
+    // /// Gets an element mutably from the StackVec by index with no handholding.
+    // ///
+    // /// This is the fastest version of reading/writing an element in the StackVec, but you have to manually ensure that **your `idx` is within range of this StackVec**.
+    // /// Essentially, only do this if
+    // /// ```ignore
+    // /// idx < stack_vec.len()
+    // /// ```
+    // /// returns true (see [Self::len()](StackVec::len())).
+    // ///
+    // /// You can use [`Self::index_mut()`](StackVec::index_mut()) for a version that automatically performs this check. Alternatively,
+    // /// you can also use [`Self::get_mut()`](StackVec::get_mut()) if you want this check to be recoverable.
+    // ///
+    // /// # Arguments
+    // /// - `idx`: The index of the element to return.
+    // ///
+    // /// # Returns
+    // /// A mutable reference to the referred element, or else [`None`] if the `idx` is out-of-bounds.
+    // #[inline]
+    // #[track_caller]
+    // pub unsafe fn get_mut_unchecked(&mut self, idx: usize) -> &mut T {
+    //     // SAFETY: We use our assertion for `self.len` that the first `self.len` elements are always initialized, and rely on the user to ensure that `idx < self.len`.
+    //     self.data[idx].assume_init_mut()
+    // }
 
     /// Returns this StackVec as a slice of `T`s.
     ///
@@ -460,50 +460,16 @@ impl<const LEN: usize, T> StackVec<LEN, T> {
         }
     }
 
-    /// Returns an iterator over the internal `T`s.
-    ///
-    /// This is equivalent to calling:
-    /// ```ignore
-    /// stack_vec.as_slice().iter()
-    /// ```
-    ///
-    /// # Returns
-    /// A [`std::slice::Iter`] is returned, with all the double-endedness pleasure that comes along with it.
-    #[inline]
-    pub fn iter(&self) -> std::slice::Iter<T> { self.as_slice().iter() }
+    // /// Returns the number of elements stored in the StackVec.
+    // #[inline]
+    // pub const fn len(&self) -> usize { self.len }
 
-    /// Returns a mutable iterator over the internal `T`s.
-    ///
-    /// This is equivalent to calling:
-    /// ```ignore
-    /// stack_vec.as_slice_mut().iter_mut()
-    /// ```
-    ///
-    /// # Returns
-    /// A [`std::slice::IterMut`] is returned, with all the double-endedness pleasure that comes along with it.
-    #[inline]
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<T> { self.as_slice_mut().iter_mut() }
-
-    /// Returns a iterator-by-ownership over the internal `T`s.
-    ///
-    /// # Returns
-    /// An [`IntoIter`] that owns the internal array and uses it to efficiently return elements.
-    #[inline]
-    pub fn into_iter(self) -> IntoIter<LEN, T> {
-        let end: usize = self.len;
-        IntoIter { vec: self, i: 0, end }
-    }
-
-    /// Returns the number of elements stored in the StackVec.
-    #[inline]
-    pub const fn len(&self) -> usize { self.len }
-
-    /// Returns whether any elements are stored in the StackVec at all.
-    ///
-    /// # Returns
-    /// True if there are 0 elements, false if there is at least 1.
-    #[inline]
-    pub const fn is_empty(&self) -> bool { self.len == 0 }
+    // /// Returns whether any elements are stored in the StackVec at all.
+    // ///
+    // /// # Returns
+    // /// True if there are 0 elements, false if there is at least 1.
+    // #[inline]
+    // pub const fn is_empty(&self) -> bool { self.len == 0 }
 
     /// Returns the number of elements this StackVec can store in total.
     ///
@@ -639,6 +605,18 @@ impl<const LEN: usize, T: PartialOrd> PartialOrd for StackVec<LEN, T> {
     }
 }
 
+// Deref
+impl<const LEN: usize, T> Deref for StackVec<LEN, T> {
+    type Target = [T];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target { self.as_slice() }
+}
+impl<const LEN: usize, T> DerefMut for StackVec<LEN, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target { self.as_slice_mut() }
+}
+
 // Indexing
 impl<const LEN: usize, T> Index<usize> for StackVec<LEN, T> {
     type Output = T;
@@ -711,7 +689,10 @@ impl<const LEN: usize, T> IntoIterator for StackVec<LEN, T> {
     type Item = T;
 
     #[inline]
-    fn into_iter(self) -> Self::IntoIter { <Self>::into_iter(self) }
+    fn into_iter(self) -> Self::IntoIter {
+        let end: usize = self.len;
+        IntoIter { vec: self, i: 0, end }
+    }
 }
 impl<'s, const LEN: usize, T> IntoIterator for &'s StackVec<LEN, T> {
     type IntoIter = std::slice::Iter<'s, T>;
